@@ -1,0 +1,28 @@
+diff --git a/exampleC.cpp b/exampleC.cpp
+new file mode 100644
+index 0000000..791d46f
+--- /dev/null
++++ b/exampleC.cpp
+@@ -0,0 +1,22 @@
++/* 
++ * Example patch to demonstrate Script Clerk
++ * patch management.
++ * 
++ * Script Clerk allows for manual and auto patching.
++ * The auto-patch option can be enabled when you
++ * need to change configurations for testing
++ * and you don't want to manage the changes in
++ * your code repository.
++ * 
++ * Automatically apply and remove patches for the 
++ * applications when you run them. Keep development 
++ * configurations without having to apply and clean 
++ * them up every time you touch your code repository.
++ */
++#include <iostream>
++using namespace std;
++
++int main() 
++{
++    cout << "Hello! You can see the patch now.";
++}

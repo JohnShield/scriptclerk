@@ -1,0 +1,5 @@
+"example_patch.sh" ON
+"netcat_client.sh" ON
+"netcat_server.sh" ON
+"show_identifier.sh" ON
+"start_stop_service.sh" ON
