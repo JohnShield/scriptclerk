@@ -250,7 +250,9 @@ close_applications() {
     uninstall_temporary_patches
     kill_list=`ps -ef | grep $SCRIPT_IDENTIFIER | grep \\.sh | awk '{print $2}'`
     if [ ! -z "$kill_list" ]; then
-        kill $kill_list
+        for apps in $kill_list; do
+            kill -- -$apps
+        done
     fi
 }
 
@@ -294,7 +296,7 @@ toggle_application_run() {
         $TERMINAL_PROGRAM "${CONFIG_DIRECTORY}/./${1} ${SCRIPT_IDENTIFIER}"
     else
         echo Shutting down ${1} $PID
-        kill $PID
+        kill -- -$PID
     fi
 }
 
