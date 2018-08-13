@@ -14,6 +14,11 @@ Removing and applying configuration option patches for a test environment can be
 high time overhead. Especially when needing to switch branches frequently to work 
 on different features. Script Clerk was built to address this time overhead.
 
+Operating Systems:
+* Ubuntu 18:04 (Tested)
+* Ubuntu 16:04 (Tested - Change the terminal args in the settings at start of script)
+* Other Unix Variants (Should be compatiable aside from changing terminal settings at the start of the script)
+
 Helpful Hints:
 * Run "scriptck.sh" to open up script clerk. The interface is a menu system based off whiptail. The scriptclerk subdirectory contains example files to help get you started.
 
@@ -24,3 +29,4 @@ Helpful Hints:
 * Currently designed to use gnome-terminal, but can be changed. The terminal program and arguments is set by TERMINAL_PROGRAM.
 * The auto-build occurs after the auto-patch, so code patches will be applied to your build.
 * Can be useful as a lightweight solution for automating test environments.
+

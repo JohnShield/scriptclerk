@@ -1,5 +1,5 @@
 #!/bin/bash
-##########################################################################
+###############################################################################
 # Script Clerk
 #
 # Manager for automatically starting multiple applications in development
@@ -14,17 +14,30 @@
 # directory, as it uses git to create, check and apply patches.
 #
 # Author: John Shield
-# Date:   2018
-##########################################################################
+# Date: 2018
+# Repo: https://github.com/JohnShield/scriptclerk
+# License: BSD-3-New 
+# (Free to use or modify for any purpose; Keep the git repo link; Don't sue me)
+###############################################################################
+
+CONFIG_DIRECTORY="../dev/scriptclerk"
 
 BUILD="echo EXECUTE THIS FOR THE BUILD (EDIT THIS FOR YOUR CONFIGURATION)"
-TERMINAL_PROGRAM="gnome-terminal --tab -- /bin/bash -c"
+STARTUP_SCRIPT=""
+
+# If TERMINAL_TAB_TITLE defined will run:
+#   TERMINAL_PROGRAM TERMINAL_TAB_TITLE <script name> TERMINAL_RUN_ARGS <script>
+# Otherwise it will run: 
+#   TERMINAL_PROGRAM TERMINAL_RUN_ARGS <script>
+
+TERMINAL_PROGRAM="gnome-terminal"
+TERMINAL_TAB_TITLE="--tab -t"
+TERMINAL_RUN_ARGS="-- /bin/bash -c"
 
 ####################################################################
-# Internal Globals
+# Internal Global Variables
 ####################################################################
 
-CONFIG_DIRECTORY="scriptclerk"
 CONFIG_FILE="config"
 APP_ENABLE="app_enable"
 PATCH_ENABLE="patch_enable"
@@ -33,7 +46,7 @@ MENU_SIZE="22 78 14"
 MSGBOX_SIZE="8 78"
 
 #PID of current process appended on startup
-SCRIPT_IDENTIFIER="SCRIPT_CLERK_IDENTIFIER"
+SCRIPT_TAG="SCRIPT_CLERK_IDENTIFIER"
 
 # used to record applications that had patches applied
 global_patches_applied_list=""
@@ -42,17 +55,33 @@ global_patches_applied_list=""
 ####################################################################
 
 main_menu() {
-    var_select=$(whiptail --title "Application Management" --menu "Choose an Option" $MENU_SIZE \
-    "[Auto-start]" "Run Auto-start Applications" \
-    "[Select]" "Select Auto-start Applications" \
-    "[Patches]" "Manage application patches" \
-    "[Config]" "Configuration Options" \
-    "[Exit]" "Exit Program" 3>&2 2>&1 1>&3)
+    zombie_apps=`check_for_applications $SCRIPT_TAG`
+
+    if [ -z "$zombie_apps" ]; then
+        var_select=$(whiptail --title "Application Management" --menu "Choose an Option" $MENU_SIZE \
+        "[Auto-start]" "Run Auto-start Applications" \
+        "[Select]" "Select Auto-start Applications" \
+        "[Patches]" "Manage application patches" \
+        "[Config]" "Configuration Options" \
+        "[Exit]" "Exit Program" 3>&2 2>&1 1>&3)
+    else
+        var_select=$(whiptail --title "Application Management" --menu "Choose an Option" $MENU_SIZE \
+        "[Auto-start]" "Run Auto-start Applications" \
+        "[ClearZombies]" "Previous applications running detected. Clear them?"\
+        "[Select]" "Select Auto-start Applications" \
+        "[Patches]" "Manage application patches" \
+        "[Config]" "Configuration Options" \
+        "[Exit]" "Exit Program" 3>&2 2>&1 1>&3)
+    fi
+
     case "$var_select" in
         \[Auto-start\])
             start_applications
             1_menu_auto_start
             main_menu
+            ;;
+        \[ClearZombies\])
+            close_applications $SCRIPT_TAG
             ;;
         \[Select\])
             2_menu_select
@@ -73,16 +102,20 @@ main_menu() {
 
 1_menu_auto_start() {
     app_list=`generate_app_list`
+
     var_select=$(whiptail --title "Start and Stop Applications" --menu "Start/Stop Applications" $MENU_SIZE \
     "[<<<Close]" "Quit all applications and return to main menu" \
     "[Refresh]"  "Refresh of list of applications" \
     ${app_list} 3>&2 2>&1 1>&3)
+
     case "$var_select" in
         \[\<\<\<Close\])
-            close_applications
+            uninstall_temporary_patches
+            close_applications $SCRIPT_IDENTIFIER
             ;;
         "")
-            close_applications
+            uninstall_temporary_patches
+            close_applications $SCRIPT_IDENTIFIER
             ;;
         \[Refresh\])
             1_menu_auto_start
@@ -246,9 +279,12 @@ main_menu() {
 # Script Execution Management
 ####################################################################
 
+check_for_applications() {
+    ps -ef | grep ${1}  | grep \\.sh | awk '{print $2}'
+}
+
 close_applications() {
-    uninstall_temporary_patches
-    kill_list=`ps -ef | grep $SCRIPT_IDENTIFIER | grep \\.sh | awk '{print $2}'`
+    kill_list=`check_for_applications ${1}`
     if [ ! -z "$kill_list" ]; then
         for apps in $kill_list; do
             kill -- -$apps
@@ -258,6 +294,11 @@ close_applications() {
 
 start_applications() {
     global_patches_applied_list=""
+
+    if [ ! -z $STARTUP_SCRIPT ]; then
+        bash $STARTUP_SCRIPT $CONFIG_DIRECTORY
+    fi
+
     auto_patch_enabled_apps install
     auto_run_build
 
@@ -293,7 +334,7 @@ toggle_application_run() {
     if [ -z $PID ]; then
         auto_install_patch_for ${1}
         echo Starting up ${1}
-        $TERMINAL_PROGRAM "${CONFIG_DIRECTORY}/./${1} ${SCRIPT_IDENTIFIER}"
+        run_program ${1}
     else
         echo Shutting down ${1} $PID
         kill -- -$PID
@@ -306,9 +347,28 @@ check_app_running() {
 
 terminal_start_list() {
     for ii in $@; do
-        $TERMINAL_PROGRAM "${CONFIG_DIRECTORY}/./${ii} ${SCRIPT_IDENTIFIER}"
+        run_program $ii
     done
 }
+
+run_program() {
+    if [ -z "$TERMINAL_TAB_TITLE" ]; then
+            $TERMINAL_PROGRAM $TERMINAL_RUN_ARGS "${CONFIG_DIRECTORY}/./${1} ${SCRIPT_IDENTIFIER}"
+        if [ $? -ne 0 ]; then
+           echo ERROR: Terminal program returned error.
+           echo ERROR CMD: $TERMINAL_PROGRAM $TERMINAL_RUN_ARGS \"${CONFIG_DIRECTORY}/./${1} ${SCRIPT_IDENTIFIER}\"
+           exit 1
+        fi
+    else
+        $TERMINAL_PROGRAM $TERMINAL_TAB_TITLE "${1}" $TERMINAL_RUN_ARGS "${CONFIG_DIRECTORY}/./${1} ${SCRIPT_IDENTIFIER}"
+        if [ $? -ne 0 ]; then
+            echo ERROR: Terminal program returned error.
+            echo ERROR CMD: $TERMINAL_PROGRAM $TERMINAL_TAB_TITLE "${1}" $TERMINAL_RUN_ARGS "${CONFIG_DIRECTORY}/./${1} ${SCRIPT_IDENTIFIER}"
+            exit 1
+        fi
+    fi
+}
+
 
 ####################################################################
 # Patch management
@@ -570,7 +630,7 @@ check_directory() {
 ####################################################################
 
 # Add the current PID to the identifier
-SCRIPT_IDENTIFIER=${SCRIPT_IDENTIFIER}${$}
+SCRIPT_IDENTIFIER=${SCRIPT_TAG}${$}
 # Check and setup directory system
 check_directory
 # call the main menu
