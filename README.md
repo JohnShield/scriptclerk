@@ -21,5 +21,6 @@ Helpful Hints:
 * Applications are started from scripts ".sh" in the scriptclerk configuration folder.
 * Patches are associated with the scripts of the same time.
 * If you want to auto-build before running applications, the BUILD variable needs to be changed to whatever command you need to clean and make your software project. The BUILD variable is found at the start of the Script Clerk script.
+* Currently designed to use gnome-terminal, but can be changed. The terminal program and arguments is set by TERMINAL_PROGRAM.
 * The auto-build occurs after the auto-patch, so code patches will be applied to your build.
 * Can be useful as a lightweight solution for automating test environments.

@@ -16,11 +16,9 @@
 # Author: John Shield
 # Date:   2018
 ##########################################################################
-# NOTE: When gnome-terminal implements opening a tab from the shell
-# in the current terminal make change to support that.
-##########################################################################
 
 BUILD="echo EXECUTE THIS FOR THE BUILD (EDIT THIS FOR YOUR CONFIGURATION)"
+TERMINAL_PROGRAM="gnome-terminal --tab -- /bin/bash -c"
 
 ####################################################################
 # Internal Globals
@@ -262,17 +260,8 @@ start_applications() {
     auto_run_build
 
     apps_to_start=`list_of_enabled_applications`
-    terminal_args=`create_gnome_terminal_args $apps_to_start`
     echo Launching Applications $apps_to_start
-
-    # Need to ensure the arg for the SCRIPT_IDENTIFIER is passed to the script, so use an array definition
-    args=()
-    for ii in $terminal_args; do
-        args+=("${ii//@/' '}")
-    done
-    if [ ! -z $args ]; then
-        gnome-terminal "${args[@]}"
-    fi
+    terminal_start_list $apps_to_start
 }
 
 auto_run_build() {
@@ -302,7 +291,7 @@ toggle_application_run() {
     if [ -z $PID ]; then
         auto_install_patch_for ${1}
         echo Starting up ${1}
-        gnome-terminal -e "${CONFIG_DIRECTORY}/./${1} ${SCRIPT_IDENTIFIER}"
+        $TERMINAL_PROGRAM "${CONFIG_DIRECTORY}/./${1} ${SCRIPT_IDENTIFIER}"
     else
         echo Shutting down ${1} $PID
         kill $PID
@@ -313,10 +302,9 @@ check_app_running() {
     ps -ef | grep $SCRIPT_IDENTIFIER | grep ${1} | head -1 | awk '{print $2}'
 }
 
-create_gnome_terminal_args() {
+terminal_start_list() {
     for ii in $@; do
-        set -- "--tab" "-e" "${CONFIG_DIRECTORY}/./${ii}@${SCRIPT_IDENTIFIER}"
-        echo $@
+        $TERMINAL_PROGRAM "${CONFIG_DIRECTORY}/./${ii} ${SCRIPT_IDENTIFIER}"
     done
 }
 
