@@ -20,7 +20,7 @@
 # (Free to use or modify for any purpose; Keep the git repo link; Don't sue me)
 ###############################################################################
 
-CONFIG_DIRECTORY="../dev/scriptclerk"
+CONFIG_DIRECTORY="scriptclerk"
 
 BUILD="echo EXECUTE THIS FOR THE BUILD (EDIT THIS FOR YOUR CONFIGURATION)"
 STARTUP_SCRIPT=""
@@ -227,7 +227,7 @@ main_menu() {
 
 3_3_menu_generate() {
     staged=`git diff --cached --binary`
-    if [ $? != 0 ] || [ -z $staged ]; then
+    if [ $? != 0 ] || [ -z "$staged" ]; then
         echo ERROR: Git diff failed to provide changes to create a patch.
         if (whiptail --title "Error: Cannot Find Staged Changes Needed to Create a Patch" --yesno \
                              "Attempt Retry?" $MSGBOX_SIZE); then
