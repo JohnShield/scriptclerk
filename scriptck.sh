@@ -22,7 +22,7 @@
 
 CONFIG_DIRECTORY="scriptclerk"
 
-BUILD="echo EXECUTE THIS FOR THE BUILD (EDIT THIS FOR YOUR CONFIGURATION)"
+BUILD="echo TO BUILD A PROJECT, CHANGE THIS BUILD DEFINITION AT THE START OF THE FILE: $0"
 STARTUP_SCRIPT=""
 
 # If TERMINAL_TAB_TITLE defined will run:
@@ -71,6 +71,7 @@ main_menu() {
     if [ -z "$zombie_apps" ]; then
         var_select=$(whiptail --title "Application Management" --menu "Choose an Option" $MENU_SIZE \
         "[Auto-start]" "Run Auto-start Applications" \
+        "[Build]" "Run the configured build comand" \
         "[Select]" "Select Auto-start Applications" \
         "[Patches]" "Manage application patches" \
         "[Config]" "Configuration Options" \
@@ -79,6 +80,7 @@ main_menu() {
         var_select=$(whiptail --title "Application Management" --menu "Choose an Option" $MENU_SIZE \
         "[Auto-start]" "Run Auto-start Applications" \
         "[ClearZombies]" "Previous applications running detected. Clear them?"\
+        "[Build]" "Run the configured build comand" \
         "[Select]" "Select Auto-start Applications" \
         "[Patches]" "Manage application patches" \
         "[Config]" "Configuration Options" \
@@ -93,6 +95,11 @@ main_menu() {
             ;;
         \[ClearZombies\])
             close_applications $SCRIPT_TAG
+            main_menu
+            ;;
+        \[Build\])
+            run_build
+            main_menu
             ;;
         \[Select\])
             2_menu_select
@@ -321,12 +328,16 @@ start_applications() {
 auto_run_build() {
     auto_build_setting=`get_setting $CONFIG_FILE "[Auto-build]"`
     if [ $auto_build_setting == "ON" ]; then
-        $BUILD
-        if [ $? != 0 ]; then
-            whiptail --title "ERROR" --msgbox "ERROR: Failed build command:\n$BUILD" $MSGBOX_SIZE
-            echo "ERROR: Failed build command \"$BUILD\""
-            exit 1
-        fi
+        run_build
+    fi
+}
+
+run_build() {
+    $BUILD
+    if [ $? != 0 ]; then
+        whiptail --title "ERROR" --msgbox "ERROR: Failed build command:\n$BUILD" $MSGBOX_SIZE
+        echo "ERROR: Failed build command \"$BUILD\""
+        exit 1
     fi
 }
 
