@@ -34,8 +34,10 @@ TERMINAL_PROGRAM="gnome-terminal"
 TERMINAL_TAB_TITLE="--tab -t"
 TERMINAL_RUN_ARGS="-- /bin/bash -c"
 
+WORKING_DIR=`pwd`
+
 ####################################################################
-# Internal Global Variables
+# Internal Global Variable Setup
 ####################################################################
 
 CONFIG_FILE="config"
@@ -45,8 +47,17 @@ PATCH_ENABLE="patch_enable"
 MENU_SIZE="22 78 14"
 MSGBOX_SIZE="8 78"
 
-#PID of current process appended on startup
+# PID of current process appended on startup
 SCRIPT_TAG="SCRIPT_CLERK_IDENTIFIER"
+
+# patches need to know where they're applied from
+cd $WORKING_DIR
+PATCH_ROOT=`git rev-parse --show-toplevel 2> /dev/null`
+if [ -z $PATCH_ROOT ]; then
+    PATCH_ROOT=$WORKING_DIR
+fi
+
+PATCH_CMD="patch -d $PATCH_ROOT -N -p1"
 
 # used to record applications that had patches applied
 global_patches_applied_list=""
@@ -382,11 +393,11 @@ uninstall_temporary_patches () {
 }
 
 toggle_patch() {
-    git apply --check $CONFIG_DIRECTORY/${1} 2>/dev/null
+    $PATCH_CMD --dry-run < $CONFIG_DIRECTORY/${1} > /dev/null 2>&1
     if [ $? == 0 ]; then
         install_patch ${1}
     else
-        git apply -R --check $CONFIG_DIRECTORY/${1} 2>/dev/null
+        $PATCH_CMD -R --dry-run < $CONFIG_DIRECTORY/${1} > /dev/null 2>&1
         if [ $? == 0 ]; then
             uninstall_patch ${1}
         fi
@@ -432,11 +443,11 @@ auto_patch_enabled_apps() {
 }
 
 check_patch_status() {
-    git apply --check $CONFIG_DIRECTORY/${1} 2>/dev/null
+    $PATCH_CMD --dry-run < $CONFIG_DIRECTORY/${1} > /dev/null 2>&1
     if [ $? == 0 ]; then
         echo NOT_INSTALLED
     else
-        git apply -R --check $CONFIG_DIRECTORY/${1} 2>/dev/null
+        $PATCH_CMD -R --dry-run < $CONFIG_DIRECTORY/${1} > /dev/null 2>&1
         if [ $? == 0 ]; then
             echo INSTALLED
         else
@@ -457,13 +468,13 @@ auto_install_patch_for() {
 }
 
 install_patch() {
-    git apply --check $CONFIG_DIRECTORY/${1} 2>/dev/null
+    $PATCH_CMD --dry-run < $CONFIG_DIRECTORY/${1} > /dev/null 2>&1
     if [ $? == 0 ]; then
-        git apply $CONFIG_DIRECTORY/${1}
+        $PATCH_CMD < $CONFIG_DIRECTORY/${1} > /dev/null
         echo Installed ${1}
         global_patches_applied_list=$global_patches_applied_list" "${1}
     else
-        git apply -R --check $CONFIG_DIRECTORY/${1} 2>/dev/null
+        $PATCH_CMD -R --dry-run < $CONFIG_DIRECTORY/${1} > /dev/null 2>&1
         if [ $? == 0 ]; then
             echo Checked ${1} for install, but was already installed
         else
@@ -474,12 +485,12 @@ install_patch() {
 }
 
 uninstall_patch() {
-    git apply -R --check $CONFIG_DIRECTORY/${1} 2>/dev/null
+    $PATCH_CMD -R --dry-run < $CONFIG_DIRECTORY/${1} > /dev/null 2>&1
     if [ $? == 0 ]; then
-        git apply -R $CONFIG_DIRECTORY/${1}
+        $PATCH_CMD -R < $CONFIG_DIRECTORY/${1} > /dev/null
         echo Uninstalled ${1}
     else
-        git apply --check $CONFIG_DIRECTORY/${1} 2>/dev/null
+        $PATCH_CMD --dry-run < $CONFIG_DIRECTORY/${1} > /dev/null 2>&1
         if [ $? == 0 ]; then
             echo Checked ${1} for uninstall, but was already uninstalled
         else
@@ -491,16 +502,17 @@ uninstall_patch() {
 
 delete_patches() {
     for ii in $@; do
+        removed_first_quote="${ii%\"}"
+        patch_file="${removed_first_quote#\"}"
+
         # remove the patch if applied
-        git apply -R --check $CONFIG_DIRECTORY/$ii 2>/dev/null
+        $PATCH_CMD -R --dry-run < $CONFIG_DIRECTORY/$patch_file > /dev/null 2>&1
         if [ $? == 0 ]; then
-            echo Removing patch $CONFIG_DIRECTORY/$ii
-            git apply -R $CONFIG_DIRECTORY/$ii
+            echo Removing patch $CONFIG_DIRECTORY/$patch_file
+            $PATCH_CMD -R < $CONFIG_DIRECTORY/$patch_file > /dev/null
         fi
         # delete patch
-        removed_first_quote="${ii%\"}"
-        removed_quotes="${removed_first_quote#\"}"
-        rm $CONFIG_DIRECTORY/$removed_quotes
+        rm $CONFIG_DIRECTORY/$patch_file
     done
 }
 
