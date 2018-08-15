@@ -34,6 +34,9 @@ TERMINAL_PROGRAM="gnome-terminal"
 TERMINAL_TAB_TITLE="--tab -t"
 TERMINAL_RUN_ARGS="-- /bin/bash -c"
 
+# Ordering argument for patches and scripts retrieved by "ls"
+FILE_SORT="-t"
+
 WORKING_DIR=`pwd`
 
 ####################################################################
@@ -342,7 +345,7 @@ run_build() {
 }
 
 list_of_enabled_applications() {
-    for ii in `ls $CONFIG_DIRECTORY/*.sh`; do
+    for ii in `ls $FILE_SORT $CONFIG_DIRECTORY/*.sh`; do
         script_file=${ii/#$CONFIG_DIRECTORY\//}
         active=`get_setting $APP_ENABLE $script_file`
         if [ $active == "ON" ]; then
@@ -418,7 +421,7 @@ toggle_patch() {
 # ARGS: ${1}=check active patches, ${2}=install or uninstall
 install_patch_list () {
     echo DEBUGGING install_patch_list ${1} ${2}
-    for ii in `ls $CONFIG_DIRECTORY/*.patch`; do
+    for ii in `ls $FILE_SORT $CONFIG_DIRECTORY/*.patch`; do
         patch_file=${ii/#$CONFIG_DIRECTORY\//}
         if [ ${1} == "all" ] || [ `get_setting $PATCH_ENABLE $patch_file` == "ON" ]; then
             if [ ${2} == "install" ]; then
@@ -533,7 +536,7 @@ delete_patches() {
 
 # create list of "patches" for toggling with "status"
 generate_patch_list_with_status() {
-    for ii in `ls $CONFIG_DIRECTORY/*.patch`; do
+    for ii in `ls $FILE_SORT $CONFIG_DIRECTORY/*.patch`; do
         patch_file=${ii/#$CONFIG_DIRECTORY\//}
         echo $patch_file
         check_patch_status $patch_file
@@ -542,7 +545,7 @@ generate_patch_list_with_status() {
 
 # create list of "patches" with "application info" and "config state"
 generate_patch_list_with_description() {
-    for ii in `ls $CONFIG_DIRECTORY/*.patch`; do
+    for ii in `ls $FILE_SORT $CONFIG_DIRECTORY/*.patch`; do
         patch_file=${ii/#$CONFIG_DIRECTORY\//}
         echo $patch_file
         script_file=${ii/%patch/sh}
@@ -557,7 +560,7 @@ generate_patch_list_with_description() {
 
 # create list of "patches" for deletion with "application info" and selection default "off"
 generate_patch_list_for_deletion() {
-    for ii in `ls $CONFIG_DIRECTORY/*.patch`; do
+    for ii in `ls $FILE_SORT $CONFIG_DIRECTORY/*.patch`; do
         patch_file=${ii/#$CONFIG_DIRECTORY\//}
         echo $patch_file
         script_file=${ii/%patch/sh}
@@ -572,7 +575,7 @@ generate_patch_list_for_deletion() {
 
 # create list of "applications" with "config state"
 generate_app_list() {
-    for ii in `ls $CONFIG_DIRECTORY/*.sh`; do
+    for ii in `ls $FILE_SORT $CONFIG_DIRECTORY/*.sh`; do
         script_file=${ii/#$CONFIG_DIRECTORY\//}
         echo $script_file
 
@@ -587,7 +590,7 @@ generate_app_list() {
 
 # create a list of "applications" with "status info" and "config state"
 generate_app_list_with_description() {
-    for ii in `ls $CONFIG_DIRECTORY/*.sh`; do
+    for ii in `ls $FILE_SORT $CONFIG_DIRECTORY/*.sh`; do
         script_file=${ii/#$CONFIG_DIRECTORY\//}
         echo $script_file
         active=`get_setting $APP_ENABLE $script_file`
@@ -601,7 +604,7 @@ generate_app_list_with_description() {
 
 # create a list of "applications" with "patch info"
 generate_app_list_menu_generate() {
-    for ii in `ls $CONFIG_DIRECTORY/*.sh`; do
+    for ii in `ls $FILE_SORT $CONFIG_DIRECTORY/*.sh`; do
         script_file=${ii/#$CONFIG_DIRECTORY\//}
         echo $script_file
         patch_file=${ii/%sh/patch}
