@@ -281,10 +281,12 @@ main_menu() {
 4_menu_config() {
     auto_patch=`get_setting $CONFIG_FILE "[Auto-patch]"`
     auto_build=`get_setting $CONFIG_FILE "[Auto-build]"`
+    auto_start=`get_setting $CONFIG_FILE "[Auto-start]"`
 
     var_select=$(whiptail --title "Configuration Options" --checklist "Toggle Options" $MENU_SIZE \
-    "[Auto-patch]" "Automatically apply patches when running apps" $auto_patch \
-    "[Auto-build]" "Automatically run \"BUILD\" before running apps" $auto_build \
+    "[Auto-patch]" "Automatically apply patches when running apps " $auto_patch \
+    "[Auto-build]" "Automatically run \"BUILD\" before running apps " $auto_build \
+    "[Auto-start]" "Enter the \"Start Stop Apps\" window on startup " $auto_start \
     3>&2 2>&1 1>&3)
 
     # if not cancelled
@@ -326,6 +328,18 @@ start_applications() {
     apps_to_start=`list_of_enabled_applications`
     echo Launching Applications $apps_to_start
     terminal_start_list $apps_to_start
+}
+
+
+start_scriptclerk() {
+    auto_start_setting=`get_setting $CONFIG_FILE "[Auto-start]"`
+    if [ $auto_start_setting == "ON" ]; then
+        start_applications
+        1_menu_auto_start
+        main_menu 
+    else
+        main_menu
+    fi
 }
 
 auto_run_build() {
@@ -659,5 +673,5 @@ check_directory() {
 SCRIPT_IDENTIFIER=${SCRIPT_TAG}${$}
 # Check and setup directory system
 check_directory
-# call the main menu
-main_menu
+# start scriptclerk
+start_scriptclerk
