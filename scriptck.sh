@@ -47,7 +47,7 @@ CONFIG_FILE="config"
 APP_ENABLE="app_enable"
 PATCH_ENABLE="patch_enable"
 
-MENU_SIZE="22 78 14"
+MENU_SIZE="23 78 16"
 MSGBOX_SIZE="8 78"
 
 # PID of current process appended on startup
