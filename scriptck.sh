@@ -14,7 +14,7 @@
 # directory, as it uses git to create, check and apply patches.
 #
 # Author: John Shield
-# Date: 2018
+# Date: 26/09/2019
 # Repo: https://github.com/JohnShield/scriptclerk
 # License: BSD-3-New 
 # (Free to use or modify for any purpose; Keep the git repo link; Don't sue me)
@@ -45,6 +45,7 @@ WORKING_DIR=`pwd`
 
 CONFIG_FILE="config"
 APP_ENABLE="app_enable"
+APP_AUTO_STOP="app_auto_stop"
 PATCH_ENABLE="patch_enable"
 
 MENU_SIZE="23 78 16"
@@ -69,13 +70,14 @@ global_patches_applied_list=""
 ####################################################################
 
 main_menu() {
-    zombie_apps=`check_for_applications $SCRIPT_TAG`
+    zombie_apps=`check_for_auto_stop_applications $SCRIPT_TAG`
 
     if [ -z "$zombie_apps" ]; then
         var_select=$(whiptail --title "Application Management" --menu "Choose an Option" $MENU_SIZE \
         "[Auto-start]" "Run Auto-start Applications" \
         "[Build]" "Run the configured build comand" \
-        "[Select]" "Select Auto-start Applications" \
+        "[Cfg-start]" "Select Auto-start Applications" \
+        "[Cfg-stop]" "Select Auto-stop Applications" \
         "[Patches]" "Manage application patches" \
         "[Config]" "Configuration Options" \
         "[Exit]" "Exit Program" 3>&2 2>&1 1>&3)
@@ -84,7 +86,8 @@ main_menu() {
         "[Auto-start]" "Run Auto-start Applications" \
         "[ClearZombies]" "Previous applications running detected. Clear them?"\
         "[Build]" "Run the configured build comand" \
-        "[Select]" "Select Auto-start Applications" \
+        "[Cfg-start]" "Select Auto-start Applications" \
+        "[Cfg-stop]" "Select Auto-stop Applications" \
         "[Patches]" "Manage application patches" \
         "[Config]" "Configuration Options" \
         "[Exit]" "Exit Program" 3>&2 2>&1 1>&3)
@@ -104,16 +107,20 @@ main_menu() {
             run_build
             main_menu
             ;;
-        \[Select\])
-            2_menu_select
+        \[Cfg-start\])
+            2_menu_select_auto_start
+            main_menu
+            ;;
+        \[Cfg-stop\])
+            3_menu_select_auto_stop
             main_menu
             ;;
         \[Patches\])
-            3_menu_patches
+            4_menu_patches
             main_menu
             ;;
         \[Config\])
-            4_menu_config
+            5_menu_config
             main_menu
             ;;
         *)
@@ -147,8 +154,8 @@ main_menu() {
     esac
 }
 
-2_menu_select() {
-    check_menu_list=`generate_app_list_with_description`
+2_menu_select_auto_start() {
+    check_menu_list=`generate_app_list_for_auto_start`
 
     var_select=$(whiptail --title "Select Auto-start Applications" --checklist "Select Applications" $MENU_SIZE \
     ${check_menu_list} 3>&2 2>&1 1>&3)
@@ -162,7 +169,34 @@ main_menu() {
     fi
 }
 
-3_menu_patches() {
+3_menu_select_auto_stop () {
+    check_menu_list=`generate_app_list_for_auto_stop`
+    var_select=$(whiptail --title "Select Auto-stop Applications" --checklist "Select Applications" $MENU_SIZE \
+    ${check_menu_list} 3>&2 2>&1 1>&3)
+
+    # if not cancelled
+    if [ $? == 0 ]; then
+        echo -n > $CONFIG_DIRECTORY/$APP_AUTO_STOP
+        # write out whether the application has been selected or not
+        for ii in `ls $FILE_SORT $CONFIG_DIRECTORY/*.sh`; do
+            script_file=\"${ii/#$CONFIG_DIRECTORY\//}\"
+            selected=0
+            for xx in $var_select; do
+                if [ $script_file == $xx ]; then
+                    selected=1
+                    break;
+                fi
+            done
+            if [ $selected -gt 0 ]; then
+                echo $script_file ON >> $CONFIG_DIRECTORY/$APP_AUTO_STOP
+            else
+                echo $script_file OFF >> $CONFIG_DIRECTORY/$APP_AUTO_STOP
+            fi
+        done
+    fi
+}
+
+4_menu_patches() {
     var_select=$(whiptail --title "Manage Application Patches" --menu "Choose an Option" $MENU_SIZE \
     "[<<<Return]" "Return to Main Menu" \
     "[Toggle]" "Manually install or uninstall a patch" \
@@ -178,40 +212,39 @@ main_menu() {
     case "$var_select" in
         \[Toggle\])
             3_1_menu_toggle_patches
-            3_menu_patches
+            4_menu_patches
             ;;
         \[Set\])
             3_2_menu_select_patches
-            3_menu_patches
+            4_menu_patches
             ;;
         \[Apply\])
             install_patch_list check_active install
-            3_menu_patches
+            4_menu_patches
             ;;
         \[Remove\])
             install_patch_list check_active uninstall
-            3_menu_patches
+            4_menu_patches
             ;;
         \[Apply-All\])
             install_patch_list all install
-            3_menu_patches
+            4_menu_patches
             ;;
         \[Remove-All\])
             install_patch_list all uninstall
-            3_menu_patches
+            4_menu_patches
             ;;
         \[Generate\])
             3_3_menu_generate
-            3_menu_patches
+            4_menu_patches
             ;;
         \[Delete\])
             3_4_menu_delete
-            3_menu_patches
+            4_menu_patches
             ;;
         *)
     esac
 }
-
 
 3_1_menu_toggle_patches() {
     patch_list=`generate_patch_list_with_status`
@@ -278,10 +311,10 @@ main_menu() {
     fi
 }
 
-4_menu_config() {
-    auto_patch=`get_setting $CONFIG_FILE "[Auto-patch]"`
-    auto_build=`get_setting $CONFIG_FILE "[Auto-build]"`
-    auto_start=`get_setting $CONFIG_FILE "[Auto-start]"`
+5_menu_config() {
+    auto_patch=`get_setting_default_OFF $CONFIG_FILE "[Auto-patch]"`
+    auto_build=`get_setting_default_OFF $CONFIG_FILE "[Auto-build]"`
+    auto_start=`get_setting_default_OFF $CONFIG_FILE "[Auto-start]"`
 
     var_select=$(whiptail --title "Configuration Options" --checklist "Toggle Options" $MENU_SIZE \
     "[Auto-patch]" "Automatically apply patches when running apps " $auto_patch \
@@ -302,12 +335,17 @@ main_menu() {
 # Script Execution Management
 ####################################################################
 
-check_for_applications() {
-    ps -ef | grep ${1}  | grep \\.sh | awk '{print $2}'
+check_for_auto_stop_applications() {
+    app_list_to_keep=`grep OFF $CONFIG_DIRECTORY/$APP_AUTO_STOP | awk '{gsub(/"/, "", $1);print "-e " $1}'`
+    if [ ! -z "$app_list_to_keep" ]; then
+        ps -ef | grep ${1}  | grep \\.sh | grep -v $app_list_to_keep | awk '{print $2}'
+    else
+        ps -ef | grep ${1}  | grep \\.sh | awk '{print $2}'
+    fi
 }
 
 close_applications() {
-    kill_list=`check_for_applications ${1}`
+    kill_list=`check_for_auto_stop_applications ${1}`
     if [ ! -z "$kill_list" ]; then
         for apps in $kill_list; do
             kill -- -$apps
@@ -325,14 +363,14 @@ start_applications() {
     auto_patch_enabled_apps install
     auto_run_build
 
-    apps_to_start=`list_of_enabled_applications`
+    apps_to_start=`list_of_applications_to_autostart`
     echo Launching Applications $apps_to_start
     terminal_start_list $apps_to_start
 }
 
 
 start_scriptclerk() {
-    auto_start_setting=`get_setting $CONFIG_FILE "[Auto-start]"`
+    auto_start_setting=`get_setting_default_OFF $CONFIG_FILE "[Auto-start]"`
     if [ $auto_start_setting == "ON" ]; then
         start_applications
         1_menu_auto_start
@@ -343,7 +381,7 @@ start_scriptclerk() {
 }
 
 auto_run_build() {
-    auto_build_setting=`get_setting $CONFIG_FILE "[Auto-build]"`
+    auto_build_setting=`get_setting_default_OFF $CONFIG_FILE "[Auto-build]"`
     if [ $auto_build_setting == "ON" ]; then
         run_build
     fi
@@ -358,12 +396,15 @@ run_build() {
     fi
 }
 
-list_of_enabled_applications() {
+list_of_applications_to_autostart() {
     for ii in `ls $FILE_SORT $CONFIG_DIRECTORY/*.sh`; do
         script_file=${ii/#$CONFIG_DIRECTORY\//}
-        active=`get_setting $APP_ENABLE $script_file`
+        active=`get_setting_default_OFF $APP_ENABLE $script_file`
         if [ $active == "ON" ]; then
-            echo $script_file
+            PID=`check_app_running $script_file`
+            if [ -z $PID ]; then
+                echo $script_file
+            fi
         fi
     done
 }
@@ -408,7 +449,6 @@ run_program() {
     fi
 }
 
-
 ####################################################################
 # Patch management
 ####################################################################
@@ -437,7 +477,7 @@ install_patch_list () {
     echo DEBUGGING install_patch_list ${1} ${2}
     for ii in `ls $FILE_SORT $CONFIG_DIRECTORY/*.patch`; do
         patch_file=${ii/#$CONFIG_DIRECTORY\//}
-        if [ ${1} == "all" ] || [ `get_setting $PATCH_ENABLE $patch_file` == "ON" ]; then
+        if [ ${1} == "all" ] || [ `get_setting_default_OFF $PATCH_ENABLE $patch_file` == "ON" ]; then
             if [ ${2} == "install" ]; then
                 install_patch $patch_file
             else
@@ -449,7 +489,7 @@ install_patch_list () {
 
 # ARGS: ${1}=install or uninstall
 auto_patch_enabled_apps() {
-    auto_patch_setting=`get_setting $CONFIG_FILE "[Auto-patch]"`
+    auto_patch_setting=`get_setting_default_OFF $CONFIG_FILE "[Auto-patch]"`
     if [ $auto_patch_setting == "ON" ]; then
         echo Auto-installing patches for execution run
         # for the enabled scripts find any enabled patches
@@ -458,7 +498,7 @@ auto_patch_enabled_apps() {
             script_file=${removed_first_quote#\"}
             patch_file=${script_file/%sh/patch}
 
-            check_setting=`get_setting $PATCH_ENABLE $patch_file`
+            check_setting=`get_setting_default_OFF $PATCH_ENABLE $patch_file`
             if [ $check_setting == "ON" ]; then
                  if [ ${1} == "install" ]; then
                     install_patch $patch_file
@@ -485,7 +525,7 @@ check_patch_status() {
 }
 
 auto_install_patch_for() {
-    auto_patch_setting=`get_setting $CONFIG_FILE "[Auto-patch]"`
+    auto_patch_setting=`get_setting_default_OFF $CONFIG_FILE "[Auto-patch]"`
     if [ $auto_patch_setting == "ON" ]; then
         script_file=${1}
         patch_file=${script_file/%sh/patch}
@@ -568,7 +608,7 @@ generate_patch_list_with_description() {
         else
             echo _
         fi
-        echo `get_setting $PATCH_ENABLE $patch_file`
+        echo `get_setting_default_OFF $PATCH_ENABLE $patch_file`
     done
 }
 
@@ -602,20 +642,6 @@ generate_app_list() {
     done
 }
 
-# create a list of "applications" with "status info" and "config state"
-generate_app_list_with_description() {
-    for ii in `ls $FILE_SORT $CONFIG_DIRECTORY/*.sh`; do
-        script_file=${ii/#$CONFIG_DIRECTORY\//}
-        echo $script_file
-        active=`get_setting $APP_ENABLE $script_file`
-        if [ $active == "ON" ]; then
-            echo "ACTIVE" $active
-        else
-            echo "DISABLED" $active
-        fi
-    done
-}
-
 # create a list of "applications" with "patch info"
 generate_app_list_menu_generate() {
     for ii in `ls $FILE_SORT $CONFIG_DIRECTORY/*.sh`; do
@@ -626,6 +652,34 @@ generate_app_list_menu_generate() {
             echo OVERWRITE_PATCH
         else
             echo NEW_PATCH
+        fi
+    done
+}
+
+# create a list of "applications" with "status info" and "config state" for auto_start
+generate_app_list_for_auto_start() {
+    for ii in `ls $FILE_SORT $CONFIG_DIRECTORY/*.sh`; do
+        script_file=${ii/#$CONFIG_DIRECTORY\//}
+        echo $script_file
+        active=`get_setting_default_OFF $APP_ENABLE $script_file`
+        if [ $active == "ON" ]; then
+            echo "ACTIVE" $active
+        else
+            echo "DISABLED" $active
+        fi
+    done
+}
+
+# create a list of "applications" with "status info" and "config state" for auto-stop
+generate_app_list_for_auto_stop() {
+    for ii in `ls $FILE_SORT $CONFIG_DIRECTORY/*.sh`; do
+        script_file=${ii/#$CONFIG_DIRECTORY\//}
+        echo $script_file
+        active=`get_setting_default_ON $APP_AUTO_STOP $script_file`
+        if [ $active == "OFF" ]; then
+            echo "DISABLED" $active
+        else
+            echo "ACTIVE" $active
         fi
     done
 }
@@ -645,7 +699,7 @@ del_setting() {
     fi
 }
 
-get_setting() {
+get_setting_default_OFF() {
     if [ -f $CONFIG_DIRECTORY/${1} ]; then
         result_val=`grep -F ${2} $CONFIG_DIRECTORY/${1}`
         if [ $? == 0 ]; then
@@ -656,6 +710,19 @@ get_setting() {
         fi
     fi
     echo OFF
+}
+
+get_setting_default_ON() {
+    if [ -f $CONFIG_DIRECTORY/${1} ]; then
+        result_val=`grep -F ${2} $CONFIG_DIRECTORY/${1}`
+        if [ $? == 0 ]; then
+            if [ `echo $result_val | cut -d " " -f 2` == "OFF" ]; then
+                echo OFF
+                return
+            fi
+        fi
+    fi
+    echo ON
 }
 
 check_directory() {
