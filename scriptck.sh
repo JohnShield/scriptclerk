@@ -286,7 +286,7 @@ main_menu() {
     var_select=$(whiptail --title "Configuration Options" --checklist "Toggle Options" $MENU_SIZE \
     "[Auto-patch]" "Automatically apply patches when running apps " $auto_patch \
     "[Auto-build]" "Automatically run \"BUILD\" before running apps " $auto_build \
-    "[Auto-start]" "Enter the \"Start Stop Apps\" window on startup " $auto_start \
+    "[Auto-start]" "Go directly to running application on startup " $auto_start \
     3>&2 2>&1 1>&3)
 
     # if not cancelled
